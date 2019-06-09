@@ -15,5 +15,8 @@
     <None Include="Data\Forward.slang">
       <Filter>Data</Filter>
     </None>
+    <None Include="Data\BindlessVS.slang">
+      <Filter>Data</Filter>
+    </None>
   </ItemGroup>
 </Project>

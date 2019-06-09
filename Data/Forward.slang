@@ -1,6 +1,6 @@
-import ShaderCommon;
 import Shading;
 import DefaultVS;
+import BindlessVS;
 
 [[vk::push_constant]]
 cbuffer PushConstantBuffer
@@ -8,20 +8,21 @@ cbuffer PushConstantBuffer
     uint gDrawID;
 };
 
-// For debug purpose
 struct MainVSOut
 {
     VertexOut defaultVSOut;
-    float3 posM : MODEL_POSITION;
     uint drawID : DRAW_ID;
 };
 
 MainVSOut MainVS(VertexIn vIn)
 {
     MainVSOut out;
+#ifdef BINDLESS_CONSTANTS
+    out.defaultVSOut = bindlessVS(vIn, gDrawID);
+#else
     out.defaultVSOut = defaultVS(vIn);
-    out.posM = vIn.pos.xyz;
-    out.drawID = gDrawID + vIn.instanceID;
+#endif
+    out.drawID = gDrawID;
 
     return out;
 }

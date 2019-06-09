@@ -21,6 +21,22 @@ private:
     void SetupRendering(uint32_t width, uint32_t height);
     void RenderScene(RenderContext* renderContext, const Fbo::SharedPtr& targetFbo);
     void RenderSceneExplicit(RenderContext* renderContext, const Fbo::SharedPtr& targetFbo);
+    void RenderSceneBindlessConstants(RenderContext* renderContext, const Fbo::SharedPtr& targetFbo);
+
+    void DrawSingleMesh(
+        RenderContext* renderContext,
+        const GraphicsVars::SharedPtr& vars,
+        const GraphicsState::SharedPtr& state,
+        const Mesh::SharedPtr& mesh,
+        const Scene::ModelInstance::SharedPtr& modelInstance,
+        const Model::MeshInstance::SharedPtr& meshInstance,
+        std::function<void(const GraphicsVars::SharedPtr&, const Model::MeshInstance::SharedPtr&, const Scene::ModelInstance::SharedPtr&)> setPerDrawData);
+
+    void UpdateShaderBindingLocations(const GraphicsVars::SharedPtr& vars);
+    void SetPerFrameData(const GraphicsVars::SharedPtr& vars, const Camera::SharedPtr& camera, const Scene::SharedPtr& scene);
+    void SetPerMaterialData(const GraphicsVars::SharedPtr& vars, const Material::SharedPtr& material);
+
+    void EnableBindlessConstants(bool enable);
     
     Scene::SharedPtr mScene;
 
@@ -35,4 +51,5 @@ private:
 
     uint32_t mDrawCount;
     bool mReferenceMode;
+    bool mBindlessConstantsMode;
 };
