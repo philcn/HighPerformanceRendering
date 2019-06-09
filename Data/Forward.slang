@@ -17,7 +17,9 @@ struct MainVSOut
 MainVSOut MainVS(VertexIn vIn)
 {
     MainVSOut out;
-#ifdef BINDLESS_CONSTANTS
+#if defined(MULTI_DRAW)
+    out.defaultVSOut = bindlessVS(vIn, 0); // TODO: Figure out the equivalent of gl_DrawID / gl_DrawIndex
+#elif defined(BINDLESS_CONSTANTS)
     out.defaultVSOut = bindlessVS(vIn, gDrawID);
 #else
     out.defaultVSOut = defaultVS(vIn);

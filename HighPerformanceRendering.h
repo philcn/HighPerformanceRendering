@@ -22,6 +22,7 @@ private:
     void RenderScene(RenderContext* renderContext, const Fbo::SharedPtr& targetFbo);
     void RenderSceneExplicit(RenderContext* renderContext, const Fbo::SharedPtr& targetFbo);
     void RenderSceneBindlessConstants(RenderContext* renderContext, const Fbo::SharedPtr& targetFbo);
+    void RenderSceneBindlessMultiDraw(RenderContext* renderContext, const Fbo::SharedPtr& targetFbo);
 
     void DrawSingleMesh(
         RenderContext* renderContext,
@@ -36,7 +37,7 @@ private:
     void SetPerFrameData(const GraphicsVars::SharedPtr& vars, const Camera::SharedPtr& camera, const Scene::SharedPtr& scene);
     void SetPerMaterialData(const GraphicsVars::SharedPtr& vars, const Material::SharedPtr& material);
 
-    void EnableBindlessConstants(bool enable);
+    void ConfigureRenderMode();
     
     Scene::SharedPtr mScene;
 
@@ -50,6 +51,13 @@ private:
     GraphicsState::SharedPtr mForwardState;
 
     uint32_t mDrawCount;
-    bool mReferenceMode;
-    bool mBindlessConstantsMode;
+
+    enum class RenderMode : int32_t
+    {
+        Stock = 0,
+        Explicit,
+        BindlessConstants,
+        BindlessMultiDraw
+    };
+    RenderMode mRenderMode;
 };
