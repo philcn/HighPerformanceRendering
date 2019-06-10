@@ -1,6 +1,14 @@
 import Shading;
-import DefaultVS;
+
+#if defined(MULTI_DRAW) || defined(BINDLESS_CONSTANTS)
 import BindlessVS;
+#else
+import DefaultVS;
+#endif
+
+#ifdef BINDLESS_MATERIAL
+import BindlessMaterial;
+#endif
 
 [[vk::push_constant]]
 cbuffer PushConstantBuffer
@@ -43,7 +51,13 @@ MainVSOut MainVS(VertexIn vIn)
 float4 MainPS(MainVSOut mainVSOut) : SV_TARGET
 {
     VertexOut vOut = mainVSOut.defaultVSOut;
+    const uint materialID = mainVSOut.drawID; // Assumes identity drawID - materialID mapping
+
+#ifdef BINDLESS_MATERIAL
+    ShadingData sd = prepareShadingDataBindless(vOut, gMaterial, gCamera.posW, materialID);
+#else
     ShadingData sd = prepareShadingData(vOut, gMaterial, gCamera.posW);
+#endif
 
     ShadingResult sr = evalMaterial(sd, gLights[0], 1);
 
@@ -52,6 +66,7 @@ float4 MainPS(MainVSOut mainVSOut) : SV_TARGET
     color.rgb += sd.emissive;
     color.a = 1;
 
+    // Test if drawID is hooked up correctly
     if (mainVSOut.drawID == 5)
     {
         color.r = 1.0;

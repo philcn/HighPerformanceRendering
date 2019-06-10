@@ -51,6 +51,7 @@ private:
     GraphicsState::SharedPtr mForwardState;
 
     uint32_t mDrawCount;
+    bool mPersistantShaderResourcesBound;
 
     enum class RenderMode : int32_t
     {

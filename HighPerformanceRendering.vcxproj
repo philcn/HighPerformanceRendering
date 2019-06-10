@@ -22,6 +22,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="Data\BindlessMaterial.slang" />
     <None Include="Data\BindlessVS.slang" />
     <None Include="Data\Forward.slang" />
   </ItemGroup>

@@ -18,5 +18,8 @@
     <None Include="Data\BindlessVS.slang">
       <Filter>Data</Filter>
     </None>
+    <None Include="Data\BindlessMaterial.slang">
+      <Filter>Data</Filter>
+    </None>
   </ItemGroup>
 </Project>

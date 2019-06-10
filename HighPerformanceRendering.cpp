@@ -34,6 +34,7 @@ void HighPerformanceRendering::onLoad(SampleCallbacks* sample, RenderContext* re
     mCamController.setCameraSpeed(5.0f);
 
     mDrawCount = 0;
+    mPersistantShaderResourcesBound = false;
     mRenderMode = RenderMode::BindlessMultiDraw;
 
     SetupScene();
@@ -230,14 +231,19 @@ void HighPerformanceRendering::RenderSceneBindlessConstants(RenderContext* rende
         drawList.drawConstantsBuffer = nullptr;
     }); 
 
+    // One-time draw constant bind
+    if (!mPersistantShaderResourcesBound)
+    {
+        mForwardVars->setStructuredBuffer("gDrawConstants", drawList.drawConstantsBuffer);
+        mPersistantShaderResourcesBound = true;
+    }
+
     // Per frame draw operation
     mDrawCount = 0;
     mForwardState->setFbo(targetFbo);
 
     UpdateShaderBindingLocations(mForwardVars);
     SetPerFrameData(mForwardVars, mCamera, mScene);
-
-    mForwardVars->setStructuredBuffer("gDrawConstants", drawList.drawConstantsBuffer);
 
     for (const auto& mesh : drawList.meshes)
     {
@@ -268,7 +274,19 @@ void HighPerformanceRendering::RenderSceneBindlessMultiDraw(RenderContext* rende
 
         Vao::SharedPtr vao;
         Buffer::SharedPtr indirectArgBuffer;
-        Material::SharedPtr proxyMaterial; // The material to bind for now (until bindless material is implemented)
+        Material::SharedPtr protoMaterial; // The material instance used to provide material data uniform across the multi draw
+
+        struct MaterialData
+        {
+            Texture::SharedPtr baseColor;
+            Texture::SharedPtr specular;
+            Texture::SharedPtr emissive;
+            Texture::SharedPtr normalMap;
+
+            // TODO: Constants
+        };
+
+        std::vector<MaterialData> materialData; // Bindless textures and data indexed by drawID. TODO: drawID to materialID mapping
     };
 
     auto prepareDrawList = [&]() -> DrawList
@@ -288,6 +306,8 @@ void HighPerformanceRendering::RenderSceneBindlessMultiDraw(RenderContext* rende
         std::vector<uint32_t> vertexOffsets;
         std::vector<uint32_t> indexOffsets;
         std::vector<uint32_t> indexCounts;
+
+        std::vector<Material::SharedPtr> materials;
 
         REPEAT_NEXT_BLOCK
         for (uint32_t modelID = 0; modelID < mScene->getModelCount(); ++modelID)
@@ -346,6 +366,9 @@ void HighPerformanceRendering::RenderSceneBindlessMultiDraw(RenderContext* rende
 
                         indexOffsets.push_back((uint32_t)currentIBOffset / sizeof(uint32_t));
                         indexCounts.push_back(indexCount);
+
+                        // TODO: Identical material check
+                        materials.push_back(mesh->getMaterial());
                     }
                 }
             }
@@ -367,10 +390,10 @@ void HighPerformanceRendering::RenderSceneBindlessMultiDraw(RenderContext* rende
             auto ib = Buffer::create(indices.size(), Buffer::BindFlags::Index, Buffer::CpuAccess::None, indices.data());;
             drawList.vao = Vao::create(protoVao->getPrimitiveTopology(), protoVao->getVertexLayout(), vbs, ib, indexFormat);
 
-            // Build indirect arguments
             std::vector<DrawIndexedArguments> drawArgs;
             for (uint32_t i = 0; i < drawList.numDrawItems; ++i)
             {
+                // Build indirect arguments
                 DrawIndexedArguments args = {};
                 args.indexCountPerInstance = indexCounts[i];
                 args.startIndexLocation = indexOffsets[i];
@@ -379,10 +402,20 @@ void HighPerformanceRendering::RenderSceneBindlessMultiDraw(RenderContext* rende
                 args.startInstanceLocation = i; // use gl_InstanceID as drawID
                      
                 drawArgs.emplace_back(args);
+
+                // Extract material textures
+                const auto& material = materials[i];
+                DrawList::MaterialData materialData = {};
+                materialData.baseColor = material->getBaseColorTexture();
+                materialData.specular = material->getSpecularTexture();
+                materialData.emissive = material->getEmissiveTexture();
+                materialData.normalMap = material->getNormalMap();
+
+                drawList.materialData.push_back(materialData);
             }
 
             drawList.indirectArgBuffer = Buffer::create(drawArgs.size() * sizeof(DrawIndexedArguments), Resource::BindFlags::IndirectArg, Buffer::CpuAccess::Write, drawArgs.data());
-            drawList.proxyMaterial = mScene->getModel(0)->getMesh(0)->getMaterial();
+            drawList.protoMaterial = mScene->getModel(0)->getMesh(0)->getMaterial();
         }
 
         return drawList;
@@ -397,18 +430,41 @@ void HighPerformanceRendering::RenderSceneBindlessMultiDraw(RenderContext* rende
         drawList.drawConstantsBuffer = nullptr;
         drawList.vao = nullptr;
         drawList.indirectArgBuffer = nullptr;
-        drawList.proxyMaterial = nullptr;
+        drawList.protoMaterial = nullptr;
+        drawList.materialData.clear();
     }); 
+
+    auto bindMaterialResources = [=]() -> bool
+    {
+        SetPerMaterialData(mForwardVars, drawList.protoMaterial);
+
+        // TODO: Use pre-built parameter block
+        for (uint32_t i = 0; i < drawList.materialData.size(); ++i)
+        {
+            const auto& materialData = drawList.materialData[i];
+            mForwardVars->setTexture("gBindlessMaterialBaseColor[" + std::to_string(i) + "]", materialData.baseColor);
+            mForwardVars->setTexture("gBindlessMaterialSpecular[" + std::to_string(i) + "]", materialData.specular);
+            mForwardVars->setTexture("gBindlessMaterialEmissive[" + std::to_string(i) + "]", materialData.emissive);
+            mForwardVars->setTexture("gBindlessMaterialNormalMap[" + std::to_string(i) + "]", materialData.normalMap);
+        }
+
+        return true;
+    };
+
+    // One-time draw constant and materials bind
+    if (!mPersistantShaderResourcesBound)
+    {
+        mForwardVars->setStructuredBuffer("gDrawConstants", drawList.drawConstantsBuffer);
+        bindMaterialResources();
+
+        mPersistantShaderResourcesBound = true;
+    }
 
     // Per frame draw operation
     mForwardState->setFbo(targetFbo);
 
     UpdateShaderBindingLocations(mForwardVars);
     SetPerFrameData(mForwardVars, mCamera, mScene);
-
-    mForwardVars->setStructuredBuffer("gDrawConstants", drawList.drawConstantsBuffer);
-
-    SetPerMaterialData(mForwardVars, drawList.proxyMaterial);
 
     mForwardState->setVao(drawList.vao);
 
@@ -521,9 +577,11 @@ void HighPerformanceRendering::ConfigureRenderMode()
     else if (mRenderMode == RenderMode::BindlessMultiDraw)
     {
         mForwardProgram->addDefine("MULTI_DRAW");
+        mForwardProgram->addDefine("BINDLESS_MATERIAL");
     }
 
     mForwardVars = GraphicsVars::create(mForwardProgram->getReflector());
+    mPersistantShaderResourcesBound = false;
 }
 
 void HighPerformanceRendering::onGuiRender(SampleCallbacks* sample, Gui* gui)
