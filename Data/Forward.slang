@@ -14,17 +14,28 @@ struct MainVSOut
     uint drawID : DRAW_ID;
 };
 
+uint GetDrawID(VertexIn vIn)
+{
+#if defined(MULTI_DRAW)
+    // Use gl_InstanceID (args.baseInstance + 0) to pass drawID
+    return vIn.instanceID;
+#else
+    // Use push constants (per-draw) to pass drawID
+    return gDrawID;
+#endif
+}
+
 MainVSOut MainVS(VertexIn vIn)
 {
+    const uint drawID = GetDrawID(vIn);
+
     MainVSOut out;
-#if defined(MULTI_DRAW)
-    out.defaultVSOut = bindlessVS(vIn, 0); // TODO: Figure out the equivalent of gl_DrawID / gl_DrawIndex
-#elif defined(BINDLESS_CONSTANTS)
-    out.defaultVSOut = bindlessVS(vIn, gDrawID);
+#if defined(MULTI_DRAW) || defined(BINDLESS_CONSTANTS)
+    out.defaultVSOut = bindlessVS(vIn, drawID); 
 #else
     out.defaultVSOut = defaultVS(vIn);
 #endif
-    out.drawID = gDrawID;
+    out.drawID = drawID;
 
     return out;
 }

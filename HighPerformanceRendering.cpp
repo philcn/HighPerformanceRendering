@@ -376,7 +376,7 @@ void HighPerformanceRendering::RenderSceneBindlessMultiDraw(RenderContext* rende
                 args.startIndexLocation = indexOffsets[i];
                 args.baseVertexLocation = vertexOffsets[i];
                 args.instanceCount = 1;
-                args.startInstanceLocation = 0;
+                args.startInstanceLocation = i; // use gl_InstanceID as drawID
                      
                 drawArgs.emplace_back(args);
             }
@@ -513,11 +513,8 @@ void HighPerformanceRendering::SetPerMaterialData(const GraphicsVars::SharedPtr&
 
 void HighPerformanceRendering::ConfigureRenderMode()
 {
-    if (mRenderMode == RenderMode::Stock || mRenderMode == RenderMode::Explicit)
-    {
-        mForwardProgram->setDefines({});
-    }
-    else if (mRenderMode == RenderMode::BindlessConstants)
+    mForwardProgram->setDefines({});
+    if (mRenderMode == RenderMode::BindlessConstants)
     {
         mForwardProgram->addDefine("BINDLESS_CONSTANTS");
     }
